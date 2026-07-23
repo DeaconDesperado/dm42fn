@@ -7,6 +7,7 @@ A collection of HP-42S/DM42 program suites organized by domain. Each subdirector
 | Directory | Programs | Description |
 |-----------|----------|-------------|
 | [solar/](solar/) | 14 | Off-grid solar power sizing — energy budgeting, battery capacity, solar array sizing, inverter headroom, plus hardware engineering checks |
+| [tenon/](tenon/) | 5 | Woodworking joinery — raised panel door dimensioning, decimal-to-imperial-fraction conversion |
 
 ## Loading Programs
 

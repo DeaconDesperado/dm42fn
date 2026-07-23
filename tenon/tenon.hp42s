@@ -1,0 +1,184 @@
+@ ============================================
+@ TENON - Woodworking Joinery Calculator Suite
+@ ============================================
+@ Stack-based RPN functions for dimensioning
+@ frame-and-panel joinery, cut lists, and
+@ woodshop calculations.
+@
+@ Quick start:
+@   XEQ "TNSET"                  (set defaults)
+@   XEQ "RPANL"                  (raised panel door)
+@     Tw=15  Th=24               (enter door dims)
+@     -> Rcut=11.375  PnlW=11.375  PnlH=20.375
+@
+@ Decimal to fraction:
+@   11.375 XEQ "IMP"             (-> Z=11 Y=3 X=8)
+@   XEQ "METRC"                  (-> X=11.375)
+@
+@ Or: XEQ "TENON" then press a menu key
+@
+@ Defaults (Ogee 91-501 rail-and-stile bit set):
+@   Sw=2.25 (stile face width, 2-1/4")
+@   Rw=2.25 (rail face width, 2-1/4")
+@   Pw=0.4375 (groove depth, 7/16")
+@
+@ Override any parameter:
+@   2.5 STO "Sw"                 (wider stiles)
+@   XEQ "RPANL"                  (recalculates)
+@   XEQ "TNSET"                  (restores defaults)
+@ ============================================
+
+@ --------------------------------------------
+@ TENON - Master menu entry point
+@ Page 1: IMP METRC RPANL TNSET
+@ --------------------------------------------
+LBL "TENON"
+FC? 09
+XEQ "TNSET"
+LBL 01
+CLMENU
+"IMP"
+KEY 1 XEQ "IMP"
+"METRC"
+KEY 2 XEQ "METRC"
+"RPANL"
+KEY 3 XEQ "RPANL"
+"TNSET"
+KEY 5 XEQ "TNSET"
+LBL 10
+MENU
+STOP
+GTO 10
+END
+
+@ --------------------------------------------
+@ TNSET - Initialize default parameters
+@ Sw=2.25 Rw=2.25 Pw=0.4375
+@ Based on Ogee 91-501 bit set (7/16" groove)
+@ --------------------------------------------
+LBL "TNSET"
+2.25
+STO "Sw"
+2.25
+STO "Rw"
+0.4375
+STO "Pw"
+SF 09
+RTN
+END
+
+@ --------------------------------------------
+@ RPANL - Raised Panel Door Dimensions
+@ Rail cut length:  Rcut = Tw - 2Sw + 2Pw
+@ Panel raw width:  PnlW = Tw - 2Sw + 2Pw
+@ Panel raw height: PnlH = Th - 2Rw + 2Pw
+@ Stile cut length = Th (full door height)
+@
+@ INPUT: Tw, Th
+@ Reads: Sw, Rw, Pw
+@ Stores: Rcut, PnlW, PnlH
+@ Displays: Rcut, PnlW, PnlH via VIEW/STOP
+@ --------------------------------------------
+LBL "RPANL"
+FC? 09
+XEQ "TNSET"
+INPUT "Tw"
+INPUT "Th"
+RCL "Tw"
+RCL "Sw"
+2
+*
+-
+RCL "Pw"
+2
+*
++
+STO "Rcut"
+STO "PnlW"
+VIEW "Rcut"
+STOP
+VIEW "PnlW"
+STOP
+RCL "Th"
+RCL "Rw"
+2
+*
+-
+RCL "Pw"
+2
+*
++
+STO "PnlH"
+VIEW "PnlH"
+STOP
+RTN
+END
+
+@ --------------------------------------------
+@ IMP - Decimal to Imperial Fraction
+@ Finds smallest power-of-2 denominator (2..64)
+@ Falls back to nearest 64th if no exact match
+@ Stack: X=decimal -> Z=whole, Y=numer, X=denom
+@ Example: 11.375 -> Z=11, Y=3, X=8 (11 3/8")
+@ Temp: ImpV, ImpW, ImpF, ImpD
+@ --------------------------------------------
+LBL "IMP"
+STO "ImpV"
+IP
+STO "ImpW"
+RCL "ImpV"
+FP
+STO "ImpF"
+X=0?
+GTO 02
+2
+STO "ImpD"
+LBL 01
+RCL "ImpF"
+RCL "ImpD"
+*
+FP
+X=0?
+GTO 03
+RCL "ImpD"
+2
+*
+STO "ImpD"
+64
+X<Y?
+GTO 04
+GTO 01
+LBL 02
+RCL "ImpW"
+0
+1
+RTN
+LBL 03
+RCL "ImpW"
+RCL "ImpF"
+RCL "ImpD"
+*
+RCL "ImpD"
+RTN
+LBL 04
+RCL "ImpW"
+RCL "ImpF"
+64
+*
+0.5
++
+IP
+64
+RTN
+END
+
+@ --------------------------------------------
+@ METRC - Imperial Fraction to Decimal
+@ Stack: Z=whole, Y=numer, X=denom -> X=decimal
+@ Example: Z=11, Y=3, X=8 -> X=11.375
+@ --------------------------------------------
+LBL "METRC"
+/
++
+RTN
+END

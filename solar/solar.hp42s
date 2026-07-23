@@ -18,13 +18,20 @@
 @   85 ENTER 8 ENTER 1 XEQ "DCYCL"      (laptop)
 @   ...then XEQ "EBATT" onward
 @
+@ Hardware engineering checks:
+@   40 ENTER -10 ENTER 0.28 +/- XEQ "VCOLD"  (cold Voc)
+@   RCL "Psolr" ENTER 44 XEQ "CMPPT"         (MPPT amps)
+@   50 ENTER 25 ENTER 1.24 XEQ "VDROP"       (wire drop%)
+@   RCL "CAh" ENTER 1 XEQ "CRATE"            (max watts)
+@
 @ Or guided: XEQ "SOLAR" then press CHAIN
 @ ============================================
 
 @ --------------------------------------------
 @ SOLAR - Master menu entry point
-@ Page 1: ELOAD EBATT BCAP PSOLR PINV MORE
-@ Page 2: DCYCL AUTON SRSET CHAIN      BACK
+@ Page 1: ELOAD EBATT BCAP  PSOLR PINV  MORE
+@ Page 2: DCYCL AUTON VCOLD CMPPT VDROP MORE
+@ Page 3: CRATE SRSET CHAIN             MORE
 @ --------------------------------------------
 LBL "SOLAR"
 FC? 10
@@ -53,16 +60,32 @@ CLMENU
 KEY 1 XEQ "DCYCL"
 "AUTON"
 KEY 2 XEQ "AUTON"
-"SRSET"
-KEY 3 XEQ "SRSET"
-"CHAIN"
-KEY 4 XEQ "CHAIN"
-"BACK"
-KEY 6 GTO 01
+"VCOLD"
+KEY 3 XEQ "VCOLD"
+"CMPPT"
+KEY 4 XEQ "CMPPT"
+"VDROP"
+KEY 5 XEQ "VDROP"
+"MORE"
+KEY 6 GTO 03
 LBL 11
 MENU
 STOP
 GTO 11
+LBL 03
+CLMENU
+"CRATE"
+KEY 1 XEQ "CRATE"
+"SRSET"
+KEY 2 XEQ "SRSET"
+"CHAIN"
+KEY 3 XEQ "CHAIN"
+"MORE"
+KEY 6 GTO 01
+LBL 12
+MENU
+STOP
+GTO 12
 END
 
 @ --------------------------------------------
@@ -70,6 +93,7 @@ END
 @ Prompts for inputs, displays each result
 @ Press R/S after each result to continue
 @ Adds phantom load (Pidle*24) to Eload
+@ Includes CRATE and CMPPT hardware checks
 @ --------------------------------------------
 LBL "CHAIN"
 FC? 10
@@ -92,6 +116,14 @@ VIEW "Ctot"
 STOP
 VIEW "CAh"
 STOP
+RCL "CAh"
+INPUT "Crate"
+XEQ "CRATE"
+VIEW "Pmax"
+STOP
+VIEW "Imax"
+STOP
+RCL "Ctot"
 INPUT "Ndays"
 XEQ "AUTON"
 VIEW "Cauto"
@@ -100,6 +132,10 @@ RCL "Ctot"
 INPUT "PSH"
 XEQ "PSOLR"
 VIEW "Psolr"
+STOP
+INPUT "Vbmin"
+XEQ "CMPPT"
+VIEW "Imppt"
 STOP
 RCL "Pavg"
 STO "Ppeak"
@@ -113,7 +149,7 @@ END
 @ --------------------------------------------
 @ SRSET - Initialize default parameters
 @ Ninv=0.85 DoD=0.80 Vsys=51.2 Nsol=0.80
-@ Pidle=20 Ndays=1
+@ Pidle=20 Ndays=1 Crate=0.5 Vbmin=40
 @ --------------------------------------------
 LBL "SRSET"
 0.85
@@ -128,6 +164,10 @@ STO "Nsol"
 STO "Pidle"
 1
 STO "Ndays"
+0.5
+STO "Crate"
+40
+STO "Vbmin"
 SF 10
 RTN
 END
@@ -225,5 +265,83 @@ END
 LBL "AUTON"
 *
 STO "Cauto"
+RTN
+END
+
+@ --------------------------------------------
+@ VCOLD - Cold Weather Max Open-Circuit Voltage
+@ Voc_cold = Voc_stc * [1 + (Tmin-25) * (coeff/100)]
+@ Stack: Z=Voc_stc(V), Y=Tmin(C), X=Coeff(%/C)
+@ Coeff is negative, e.g. -0.28
+@ Stores: Vcold(V)
+@ --------------------------------------------
+LBL "VCOLD"
+100
+/
+X<>Y
+25
+-
+*
+1
++
+*
+STO "Vcold"
+RTN
+END
+
+@ --------------------------------------------
+@ CMPPT - MPPT Controller Amperage Sizing
+@ I_mppt = (P_solar / V_batt_min) * 1.25
+@ Stack: Y=Psolar(W), X=Vbmin(V) -> X=Imppt(A)
+@ 1.25 = NEC safety factor
+@ Stores: Imppt(A)
+@ --------------------------------------------
+LBL "CMPPT"
+/
+1.25
+*
+STO "Imppt"
+RTN
+END
+
+@ --------------------------------------------
+@ VDROP - Wire Voltage Drop
+@ Vdrop = (2 * L * I * R) / 1000
+@ %Vdrop = (Vdrop / Vsys) * 100
+@ Stack: Z=L(ft), Y=I(A), X=R(Ohm/kft)
+@ Reads: Vsys
+@ Stores: Vd(V), VdPct(%)
+@ NEC limit: keep VdPct under 3%
+@ --------------------------------------------
+LBL "VDROP"
+*
+*
+2
+*
+1000
+/
+STO "Vd"
+RCL "Vsys"
+/
+100
+*
+STO "VdPct"
+RTN
+END
+
+@ --------------------------------------------
+@ CRATE - Max Continuous Power from C-Rate
+@ I_max = C_Ah * C-Rate
+@ P_max = I_max * V_system
+@ Stack: Y=CAh(Ah), X=Crate -> X=Pmax(W)
+@ Reads: Vsys
+@ Stores: Imax(A), Pmax(W)
+@ --------------------------------------------
+LBL "CRATE"
+*
+STO "Imax"
+RCL "Vsys"
+*
+STO "Pmax"
 RTN
 END

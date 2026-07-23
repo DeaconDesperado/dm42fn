@@ -1,0 +1,229 @@
+@ ============================================
+@ SOLAR - Off-Grid Solar Power Sizing Suite
+@ ============================================
+@ Stack-based RPN functions for sizing solar
+@ panels, batteries, and inverters.
+@
+@ Quick start:
+@   XEQ "SRSET"                  (set defaults)
+@   400 ENTER 8 XEQ "ELOAD"     (daily energy)
+@   XEQ "EBATT"                  (inverter loss)
+@   XEQ "BCAP"                   (battery size)
+@   4.5 XEQ "PSOLR"             (solar array)
+@   1440 XEQ "PINV"             (inverter size)
+@
+@ Multi-device energy budgeting:
+@   0 STO "Eload"               (clear accumulator)
+@   600 ENTER 8 ENTER 0.50 XEQ "DCYCL"  (HVAC)
+@   85 ENTER 8 ENTER 1 XEQ "DCYCL"      (laptop)
+@   ...then XEQ "EBATT" onward
+@
+@ Or guided: XEQ "SOLAR" then press CHAIN
+@ ============================================
+
+@ --------------------------------------------
+@ SOLAR - Master menu entry point
+@ Page 1: ELOAD EBATT BCAP PSOLR PINV MORE
+@ Page 2: DCYCL AUTON SRSET CHAIN      BACK
+@ --------------------------------------------
+LBL "SOLAR"
+FC? 10
+XEQ "SRSET"
+LBL 01
+CLMENU
+"ELOAD"
+KEY 1 XEQ "ELOAD"
+"EBATT"
+KEY 2 XEQ "EBATT"
+"BCAP"
+KEY 3 XEQ "BCAP"
+"PSOLR"
+KEY 4 XEQ "PSOLR"
+"PINV"
+KEY 5 XEQ "PINV"
+"MORE"
+KEY 6 GTO 02
+LBL 10
+MENU
+STOP
+GTO 10
+LBL 02
+CLMENU
+"DCYCL"
+KEY 1 XEQ "DCYCL"
+"AUTON"
+KEY 2 XEQ "AUTON"
+"SRSET"
+KEY 3 XEQ "SRSET"
+"CHAIN"
+KEY 4 XEQ "CHAIN"
+"BACK"
+KEY 6 GTO 01
+LBL 11
+MENU
+STOP
+GTO 11
+END
+
+@ --------------------------------------------
+@ CHAIN - Guided walkthrough of all formulas
+@ Prompts for inputs, displays each result
+@ Press R/S after each result to continue
+@ Adds phantom load (Pidle*24) to Eload
+@ --------------------------------------------
+LBL "CHAIN"
+FC? 10
+XEQ "SRSET"
+INPUT "Pavg"
+INPUT "Trun"
+XEQ "ELOAD"
+RCL "Pidle"
+24
+*
++
+STO "Eload"
+VIEW "Eload"
+STOP
+XEQ "EBATT"
+VIEW "Ebatt"
+STOP
+XEQ "BCAP"
+VIEW "Ctot"
+STOP
+VIEW "CAh"
+STOP
+INPUT "Ndays"
+XEQ "AUTON"
+VIEW "Cauto"
+STOP
+RCL "Ctot"
+INPUT "PSH"
+XEQ "PSOLR"
+VIEW "Psolr"
+STOP
+RCL "Pavg"
+STO "Ppeak"
+INPUT "Ppeak"
+XEQ "PINV"
+VIEW "Pcont"
+STOP
+RTN
+END
+
+@ --------------------------------------------
+@ SRSET - Initialize default parameters
+@ Ninv=0.85 DoD=0.80 Vsys=51.2 Nsol=0.80
+@ Pidle=20 Ndays=1
+@ --------------------------------------------
+LBL "SRSET"
+0.85
+STO "Ninv"
+0.80
+STO "DoD"
+51.2
+STO "Vsys"
+0.80
+STO "Nsol"
+20
+STO "Pidle"
+1
+STO "Ndays"
+SF 10
+RTN
+END
+
+@ --------------------------------------------
+@ ELOAD - Daily Energy Consumption
+@ E_load = P_avg * t
+@ Stack: Y=Pavg(W), X=Trun(h) -> X=Eload(Wh)
+@ --------------------------------------------
+LBL "ELOAD"
+*
+STO "Eload"
+RTN
+END
+
+@ --------------------------------------------
+@ EBATT - Inverter Efficiency Adjustment
+@ E_battery = E_load / eta_inv
+@ Stack: X=Eload(Wh) -> X=Ebatt(Wh)
+@ Reads: Ninv
+@ --------------------------------------------
+LBL "EBATT"
+RCL "Ninv"
+/
+STO "Ebatt"
+RTN
+END
+
+@ --------------------------------------------
+@ BCAP - Battery Capacity Sizing
+@ C_total = E_battery / DoD
+@ C_Ah = C_total / V_system
+@ Stack: X=Ebatt(Wh) -> X=Ctot(Wh)
+@ Reads: DoD, Vsys
+@ Stores: Ctot(Wh), CAh(Ah)
+@ Returns Ctot in X for chaining to PSOLR
+@ --------------------------------------------
+LBL "BCAP"
+RCL "DoD"
+/
+STO "Ctot"
+RCL "Vsys"
+/
+STO "CAh"
+RCL "Ctot"
+RTN
+END
+
+@ --------------------------------------------
+@ PSOLR - Solar Array Sizing
+@ P_solar = C_total / (PSH * eta_solar)
+@ Stack: Y=Ctot(Wh), X=PSH(h) -> X=Psolr(W)
+@ Reads: Nsol
+@ --------------------------------------------
+LBL "PSOLR"
+RCL "Nsol"
+*
+/
+STO "Psolr"
+RTN
+END
+
+@ --------------------------------------------
+@ PINV - Inverter Power Sizing
+@ P_continuous = P_peak * 1.25
+@ Stack: X=Ppeak(W) -> X=Pcont(W)
+@ --------------------------------------------
+LBL "PINV"
+STO "Ppeak"
+1.25
+*
+STO "Pcont"
+RTN
+END
+
+@ --------------------------------------------
+@ DCYCL - Duty Cycle Energy (accumulator)
+@ E = P_rated * t_on * D
+@ Stack: Z=P(W), Y=t(h), X=D(0-1) -> X=E(Wh)
+@ Accumulates into Eload via STO+
+@ Clear first: 0 STO "Eload"
+@ --------------------------------------------
+LBL "DCYCL"
+*
+*
+STO+ "Eload"
+RTN
+END
+
+@ --------------------------------------------
+@ AUTON - Autonomy Days Battery Scaling
+@ C_autonomous = C_total * N_days
+@ Stack: Y=Ctot(Wh), X=Ndays -> X=Cauto(Wh)
+@ --------------------------------------------
+LBL "AUTON"
+*
+STO "Cauto"
+RTN
+END

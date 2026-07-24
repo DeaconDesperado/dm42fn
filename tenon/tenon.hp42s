@@ -7,9 +7,10 @@
 @
 @ Quick start:
 @   XEQ "TNSET"                  (set defaults)
-@   XEQ "RPANL"                  (raised panel door)
-@     Tw=15  Th=24               (enter door dims)
-@     -> Rcut=11.375  PnlW=11.375  PnlH=20.375
+@   15 ENTER 24 XEQ "RPANL"     (Tw=15, Th=24)
+@     -> Rcut=11.375  (R/S)      (XEQ "IMP" -> 11 3/8)
+@     -> PnlW=11.375  (R/S)
+@     -> PnlH=20.375             (XEQ "IMP" -> 20 3/8)
 @
 @ Decimal to fraction:
 @   11.375 XEQ "IMP"             (-> Z=11 Y=3 X=8)
@@ -74,17 +75,17 @@ END
 @ Panel raw height: PnlH = Th - 2Rw + 2Pw
 @ Stile cut length = Th (full door height)
 @
-@ INPUT: Tw, Th
+@ Stack: Y=Tw, X=Th -> displays Rcut, PnlW, PnlH
+@ R/S between results; XEQ "IMP" at any STOP
 @ Reads: Sw, Rw, Pw
 @ Stores: Rcut, PnlW, PnlH
-@ Displays: Rcut, PnlW, PnlH via VIEW/STOP
 @ --------------------------------------------
 LBL "RPANL"
 FC? 09
 XEQ "TNSET"
-INPUT "Tw"
-INPUT "Th"
-RCL "Tw"
+STO "Th"
+X<>Y
+STO "Tw"
 RCL "Sw"
 2
 *

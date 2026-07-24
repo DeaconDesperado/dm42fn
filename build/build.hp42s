@@ -1,0 +1,389 @@
+@ ============================================
+@ BUILD - Building Construction Calculator
+@ ============================================
+@ Stack-based RPN functions for rafter sizing,
+@ birdsmouth layout, and cut angles.
+@
+@ Quick start:
+@   XEQ "BUILD"                   (show menu)
+@   Press RAFTP:
+@     Width=48  Pitch=5           (5/12 pitch)
+@     -> Llen=25.1875  (R/S)
+@     -> Pcut=22.6199  (R/S)
+@     -> Run=23.25  (R/S)
+@     -> Rise=9.6875
+@
+@ Stack-based:
+@   23.25 ENTER 9.6875 XEQ "RAFTL"
+@     -> X=25.1875 (Llen)
+@     RCL "Pcut" -> 22.6199
+@
+@ Birdsmouth (gable):
+@   XEQ "BIRD"                    (uses last rafter)
+@     -> Llen=25.1875  (mark from ridge)
+@     -> Pcut=22.6199  (miter saw angle)
+@     -> Seat=4.0  (seat cut length)
+@     -> Notch=1.5385  (depth into rafter)
+@     Ohang=6 -> Tlen=31.1875
+@
+@ Birdsmouth (shed, both ends):
+@   XEQ "SHED"                    (Rb=0)
+@   XEQ "RAFTP"   Width=96 Pitch=4
+@   XEQ "BIRD"
+@     OhLow=12 OhHi=6 -> Tlen=119.1929
+@
+@ Shed mode (freestanding, run = full width):
+@   XEQ "SHED"                    (toggles, sets Rb=0)
+@   BIRD prompts OhLow + OhHi    (both ends)
+@
+@ Defaults (gable):
+@   Rb=1.5  (ridge beam width, 2x lumber)
+@   Wall=4.0  (wall plate: 3.5" stud + 0.5")
+@
+@ Override:
+@   5.5 STO "Rb"                  (wider beam)
+@   3.5 STO "Wall"               (no sheathing)
+@   XEQ "BSET"                   (restore defaults)
+@ ============================================
+
+@ --------------------------------------------
+@ BUILD - Master menu entry point
+@ Page 1: RAFTP RAFTD RAFTL BIRD BSET MORE
+@ Page 2: IMP METRC SHED
+@ --------------------------------------------
+LBL "BUILD"
+FC? 07
+XEQ "BSET"
+LBL 01
+CLMENU
+"RAFTP"
+KEY 1 XEQ "RAFTP"
+"RAFTD"
+KEY 2 XEQ "RAFTD"
+"RAFTL"
+KEY 3 XEQ "RAFTL"
+"BIRD"
+KEY 4 XEQ "BIRD"
+"BSET"
+KEY 5 XEQ "BSET"
+"MORE"
+KEY 6 GTO 02
+LBL 10
+MENU
+STOP
+GTO 10
+LBL 02
+CLMENU
+"IMP"
+KEY 1 XEQ "IMP"
+"METRC"
+KEY 2 XEQ "METRC"
+"SHED"
+KEY 3 XEQ "SHED"
+"MORE"
+KEY 6 GTO 01
+LBL 11
+MENU
+STOP
+GTO 11
+END
+
+@ --------------------------------------------
+@ BSET - Initialize default parameters
+@ Rb=1.5  Wall=4.0  Ohang/OhLow/OhHi=0
+@ Flag 07 = defaults initialized
+@ Flag 08 = shed mode (cleared = gable)
+@ --------------------------------------------
+LBL "BSET"
+1.5
+STO "Rb"
+4
+STO "Wall"
+0
+STO "Ohang"
+STO "OhLow"
+STO "OhHi"
+SF 07
+CF 08
+RTN
+END
+
+@ --------------------------------------------
+@ SHED - Toggle shed/gable mode (flag 08)
+@ Shed: sets Rb=0 (freestanding), run = width
+@ Gable: restores Rb=1.5, run = (width-Rb)/2
+@ For ledger-attached shed: STO Rb to ledger
+@ thickness after toggling to shed mode
+@ --------------------------------------------
+LBL "SHED"
+FS? 08
+GTO 01
+SF 08
+0
+STO "Rb"
+CLA
+"SHED mode"
+AVIEW
+RTN
+LBL 01
+CF 08
+1.5
+STO "Rb"
+CLA
+"GABLE mode"
+AVIEW
+RTN
+END
+
+@ --------------------------------------------
+@ RAFTP - Rafter from pitch ratio (rise per 12)
+@ INPUT Width (building width)
+@ INPUT Pitch (unit rise per 12" of run)
+@ Gable: Run = (Width - Rb) / 2
+@ Shed:  Run = Width - Rb
+@ Displays: Llen, Pcut, Run, Rise (R/S between)
+@ Reads: Rb, flag 08
+@ Stores: Run, Rise, Llen, Pcut
+@ --------------------------------------------
+LBL "RAFTP"
+FC? 07
+XEQ "BSET"
+INPUT "Width"
+INPUT "Pitch"
+RCL "Width"
+RCL "Rb"
+-
+FS? 08
+GTO 01
+2
+/
+LBL 01
+STO "Run"
+RCL "Pitch"
+12
+/
+*
+STO "Rise"
+X↑2
+RCL "Run"
+X↑2
++
+SQRT
+STO "Llen"
+VIEW "Llen"
+STOP
+DEG
+RCL "Pitch"
+12
+/
+ATAN
+STO "Pcut"
+VIEW "Pcut"
+STOP
+VIEW "Run"
+STOP
+VIEW "Rise"
+STOP
+RTN
+END
+
+@ --------------------------------------------
+@ RAFTD - Rafter from roof angle in degrees
+@ INPUT Width (building width)
+@ INPUT Deg (roof angle from horizontal)
+@ Gable: Run = (Width - Rb) / 2
+@ Shed:  Run = Width - Rb
+@ Displays: Llen, Pcut, Run, Rise (R/S between)
+@ Reads: Rb, flag 08
+@ Stores: Run, Rise, Llen, Pcut
+@ --------------------------------------------
+LBL "RAFTD"
+FC? 07
+XEQ "BSET"
+INPUT "Width"
+INPUT "Deg"
+RCL "Width"
+RCL "Rb"
+-
+FS? 08
+GTO 01
+2
+/
+LBL 01
+STO "Run"
+DEG
+RCL "Deg"
+TAN
+*
+STO "Rise"
+RCL "Run"
+RCL "Deg"
+COS
+/
+STO "Llen"
+VIEW "Llen"
+STOP
+RCL "Deg"
+STO "Pcut"
+VIEW "Pcut"
+STOP
+VIEW "Run"
+STOP
+VIEW "Rise"
+STOP
+RTN
+END
+
+@ --------------------------------------------
+@ RAFTL - Rafter length from Run and Rise
+@ Stack: Y=Run, X=Rise -> X=Llen
+@ Stores: Run, Rise, Llen, Pcut
+@ --------------------------------------------
+LBL "RAFTL"
+STO "Rise"
+X<>Y
+STO "Run"
+X↑2
+X<>Y
+X↑2
++
+SQRT
+STO "Llen"
+DEG
+RCL "Rise"
+RCL "Run"
+/
+ATAN
+STO "Pcut"
+RCL "Llen"
+RTN
+END
+
+@ --------------------------------------------
+@ BIRD - Birdsmouth cut details
+@ Uses stored Llen, Pcut from prior rafter call
+@ Displays:
+@   Llen  - rafter between birdsmouth points
+@   Pcut  - plumb/miter saw angle (degrees)
+@   Seat  - seat cut length (= Wall)
+@   Notch - depth into rafter (perp. to bottom)
+@ Gable: INPUT Ohang -> Tlen = Llen + Ohang
+@ Shed:  INPUT OhLow, OhHi -> Tlen (both ends)
+@ Reads: Wall, Llen, Pcut, flag 08
+@ Stores: Seat, Notch, Tlen
+@ --------------------------------------------
+LBL "BIRD"
+FC? 07
+XEQ "BSET"
+VIEW "Llen"
+STOP
+VIEW "Pcut"
+STOP
+RCL "Wall"
+STO "Seat"
+VIEW "Seat"
+STOP
+DEG
+RCL "Wall"
+RCL "Pcut"
+SIN
+*
+STO "Notch"
+VIEW "Notch"
+STOP
+FS? 08
+GTO 02
+@ --- Gable: ridge cut + one birdsmouth ---
+INPUT "Ohang"
+X=0?
+GTO 01
+RCL "Llen"
++
+STO "Tlen"
+VIEW "Tlen"
+STOP
+GTO 01
+@ --- Shed: birdsmouth at both ends ---
+LBL 02
+INPUT "OhLow"
+INPUT "OhHi"
++
+X=0?
+GTO 01
+RCL "Llen"
++
+STO "Tlen"
+VIEW "Tlen"
+STOP
+LBL 01
+RTN
+END
+
+@ --------------------------------------------
+@ IMP - Decimal to Imperial Fraction
+@ Finds smallest power-of-2 denominator (2..64)
+@ Falls back to nearest 64th if no exact match
+@ Stack: X=decimal -> Z=whole, Y=numer, X=denom
+@ Example: 11.375 -> Z=11, Y=3, X=8 (11 3/8")
+@ Temp: ImpV, ImpW, ImpF, ImpD
+@ --------------------------------------------
+LBL "IMP"
+STO "ImpV"
+IP
+STO "ImpW"
+RCL "ImpV"
+FP
+STO "ImpF"
+X=0?
+GTO 02
+2
+STO "ImpD"
+LBL 01
+RCL "ImpF"
+RCL "ImpD"
+*
+FP
+X=0?
+GTO 03
+RCL "ImpD"
+2
+*
+STO "ImpD"
+64
+X<Y?
+GTO 04
+GTO 01
+LBL 02
+RCL "ImpW"
+0
+1
+RTN
+LBL 03
+RCL "ImpW"
+RCL "ImpF"
+RCL "ImpD"
+*
+RCL "ImpD"
+RTN
+LBL 04
+RCL "ImpW"
+RCL "ImpF"
+64
+*
+0.5
++
+IP
+64
+RTN
+END
+
+@ --------------------------------------------
+@ METRC - Imperial Fraction to Decimal
+@ Stack: Z=whole, Y=numer, X=denom -> X=decimal
+@ Example: Z=11, Y=3, X=8 -> X=11.375
+@ --------------------------------------------
+LBL "METRC"
+/
++
+RTN
+END

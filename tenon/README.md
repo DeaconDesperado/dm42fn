@@ -6,12 +6,10 @@ A set of HP-42S/DM42 programs for dimensioning frame-and-panel joinery and woods
 
 ```
 XEQ "TNSET"                    @ initialize defaults (run once)
-XEQ "RPANL"                    @ raised panel door dimensions
-  Tw=15                        @ enter total door width (inches)
-  Th=24                        @ enter total door height (inches)
-  -> Rcut=11.375               @ rail cut length
-  -> PnlW=11.375               @ panel raw stock width
-  -> PnlH=20.375               @ panel raw stock height
+15 ENTER 24 XEQ "RPANL"       @ Tw=15, Th=24
+  -> Rcut=11.375               @ XEQ "IMP" -> Z=11, Y=3, X=8
+  R/S -> PnlW=11.375           @ (same as Rcut)
+  R/S -> PnlH=20.375           @ XEQ "IMP" -> Z=20, Y=3, X=8
 ```
 
 Decimal to fraction:
@@ -29,7 +27,7 @@ Or use the menu: `XEQ "TENON"` then press a menu key.
 
 | Program | Description | Inputs | Outputs |
 |---------|-------------|--------|---------|
-| **RPANL** | Raised panel door dimensions | INPUT: Tw, Th | Rcut, PnlW, PnlH |
+| **RPANL** | Raised panel door dimensions | Y=Tw, X=Th | Rcut, PnlW, PnlH (VIEW/STOP) |
 
 ### Unit Conversion (stack-based)
 
@@ -128,11 +126,10 @@ Stiles run the full door height: stile length $= T\_h$. No computation needed.
 > **Example:** A 15" x 24" cabinet door with default 2-1/4" stiles/rails and 7/16" Ogee profile:
 >
 > ```
-> XEQ "RPANL"
->   Tw=15  Th=24
->   -> Rcut = 15 - 2(2.25) + 2(0.4375) = 11.375"
->   -> PnlW = 11.375"
->   -> PnlH = 24 - 2(2.25) + 2(0.4375) = 20.375"
+> 15 ENTER 24 XEQ "RPANL"
+>   -> Rcut=11.375               @ XEQ "IMP" -> 11 3/8"
+>   R/S -> PnlW=11.375
+>   R/S -> PnlH=20.375           @ XEQ "IMP" -> 20 3/8"
 > ```
 >
 > Cut list:
